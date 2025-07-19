@@ -1,0 +1,42 @@
+# docker-compose-loki.yml
+name: hammerspace-logs
+services:
+  vector:
+    image: timberio/vector:latest
+    container_name: vector-syslog
+    restart: unless-stopped
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - ./sid-lookup.json:/etc/vector/sid-lookup.json:ro
+    ports:
+      - "514:514"   # Syslog input
+      - "8686:8686" # Vector metrics for Prometheus
+    command: ["--config", "/etc/vector/vector.yaml"]
+    networks:
+      - hs-network  # Join your existing network
+      - loki-network
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/config.yaml
+    networks:
+      - loki-network
+
+volumes:
+  loki_data:
+
+networks:
+  # Connect to your existing network
+  hs-network:
+    external: true
+    name: hammerspace-monitoring_hs-network
+  # Internal network for Vector<->Loki
+  loki-network:
+    driver: bridge

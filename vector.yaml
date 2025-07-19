@@ -1,0 +1,48 @@
+# vector.yaml
+sources:
+  syslog_input:
+    type: syslog
+    address: "0.0.0.0:514"
+    mode: tcp
+
+transforms:
+  sid_to_username:
+    type: remap
+    inputs: ["syslog_input"]
+    source: |
+      # Load SID lookup table
+      lookup_data = parse_json!(read_file!("/etc/vector/sid-lookup.json"))
+      
+      # Add hostname/service labels for correlation with metrics
+      if exists(.hostname) {
+        .labels.instance = .hostname
+      }
+      
+      # Replace SID with username
+      if exists(.sid) {
+        .username = get(lookup_data, [.sid]) ?? "unknown_user"
+        del(.sid)
+        
+        # Add metric for successful lookups
+        metric_counter("sid_lookups_total", 1.0, tags: {status: "success"})
+      } else if exists(.message) && contains!(.message, "S-1-5-") {
+        # Count failed SID extractions
+        metric_counter("sid_lookups_total", 1.0, tags: {status: "failed"})
+      }
+
+sinks:
+  to_loki:
+    type: loki
+    inputs: ["sid_to_username"]
+    endpoint: "http://loki:3100"
+    labels:
+      service: "hammerspace-syslog"
+      environment: "production"
+      # Dynamic labels for correlation
+      instance: "{{ labels.instance }}"
+
+# Enable metrics endpoint for Prometheus
+api:
+  enabled: true
+  address: "0.0.0.0:8686"
+  playground: false
