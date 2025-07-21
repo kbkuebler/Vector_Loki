@@ -4,7 +4,7 @@ sources:
   logs:
     type: file
     include:
-      - ./logs/*.log
+      - /var/log/demo/*.log
     ignore_older_secs: 600
     read_from: beginning
 
@@ -17,7 +17,7 @@ transforms:
       # Load the SID map if not already cached
       if !exists(.sid_map) {
         # Read the file contents
-        map_file = read_file("/sid-lookup.json") ?? "{}"
+        map_file = read_file("/etc/vector/sid_map.json") ?? "{}"
         .sid_map = parse_json!(map_file)
       }
 
