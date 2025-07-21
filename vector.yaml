@@ -1,37 +1,41 @@
-# vector.yaml
+data_dir: /var/lib/vector
+
 sources:
-  syslog_input:
-    type: syslog
-    address: "0.0.0.0:514"
-    mode: tcp
+  logs:
+    type: file
+    include:
+      - ./logs/*.log
+    ignore_older_secs: 600
+    read_from: beginning
 
 transforms:
-  sid_to_username:
+  sid_substitute:
     type: remap
-    inputs: ["syslog_input"]
+    inputs:
+      - logs
     source: |
-      # Load SID lookup table
-      lookup_data = parse_json!(read_file!("/etc/vector/sid-lookup.json"))
-      
-      # Replace SID with username if it exists
-      if exists(.sid) {
-        .username = get(lookup_data, [.sid]) ?? "unknown_user"
-        del(.sid)
+      # Load the SID map if not already cached
+      if !exists(.sid_map) {
+        # Read the file contents
+        map_file = read_file("/sid-lookup.json") ?? "{}"
+        .sid_map = parse_json!(map_file)
+      }
+
+      # Substitute SID with username if possible
+      if is_string(.created_by_id) && exists(.sid_map[.created_by_id]) {
+        .created_by_name = .sid_map[.created_by_id]
+      } else {
+        .created_by_name = "UNKNOWN"
       }
 
 sinks:
-  to_loki:
+  loki:
     type: loki
-    inputs: ["sid_to_username"]
-    endpoint: "http://loki:3100"
+    inputs:
+      - sid_substitute
+    endpoint: http://loki:3100
     encoding:
       codec: json
     labels:
-      service: "hammerspace-syslog"
-      environment: "production"
-
-# Enable metrics endpoint for Prometheus
-api:
-  enabled: true
-  address: "0.0.0.0:8686"
-  playground: false
+      job: vector
+      host: ${HOSTNAME}
