@@ -35,6 +35,8 @@ sinks:
     type: loki
     inputs: ["sid_to_username"]
     endpoint: "http://loki:3100"
+    encoding:
+      codec: json
     labels:
       service: "hammerspace-syslog"
       environment: "production"
