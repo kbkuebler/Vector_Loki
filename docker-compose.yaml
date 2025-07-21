@@ -2,7 +2,7 @@
 name: hammerspace-logs
 services:
   vector:
-    image: timberio/vector:latest
+    image: timberio/vector:nightly-2025-07-19-alpine
     container_name: vector-syslog
     restart: unless-stopped
     volumes:
