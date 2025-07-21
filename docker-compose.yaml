@@ -14,7 +14,6 @@ services:
     command: ["--config", "/etc/vector/vector.yaml"]
     networks:
       - hs-network  # Join your existing network
-      - loki-network
 
   loki:
     image: grafana/loki:2.9.0
@@ -27,7 +26,7 @@ services:
       - loki_data:/loki
     command: -config.file=/etc/loki/config.yaml
     networks:
-      - loki-network
+      - hs-network
 
 volumes:
   loki_data:
@@ -36,7 +35,4 @@ networks:
   # Connect to your existing network
   hs-network:
     external: true
-    name: hammerspace-monitoring_hs-network
-  # Internal network for Vector<->Loki
-  loki-network:
-    driver: bridge
+    name: hs-network
