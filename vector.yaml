@@ -13,21 +13,10 @@ transforms:
       # Load SID lookup table
       lookup_data = parse_json!(read_file!("/etc/vector/sid-lookup.json"))
       
-      # Add hostname/service labels for correlation with metrics
-      if exists(.hostname) {
-        .labels.instance = .hostname
-      }
-      
-      # Replace SID with username
+      # Replace SID with username if it exists
       if exists(.sid) {
         .username = get(lookup_data, [.sid]) ?? "unknown_user"
         del(.sid)
-        
-        # Add metric for successful lookups
-        metric_counter("sid_lookups_total", 1.0, tags: {status: "success"})
-      } else if exists(.message) && contains!(.message, "S-1-5-") {
-        # Count failed SID extractions
-        metric_counter("sid_lookups_total", 1.0, tags: {status: "failed"})
       }
 
 sinks:
@@ -40,8 +29,6 @@ sinks:
     labels:
       service: "hammerspace-syslog"
       environment: "production"
-      # Dynamic labels for correlation
-      instance: "{{ labels.instance }}"
 
 # Enable metrics endpoint for Prometheus
 api:
